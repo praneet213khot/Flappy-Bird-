@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Flappy Score Challenge</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;min-height:100vh}
+.wrap{width:min(540px,100vw);padding:10px;text-align:center}h1{margin:6px 0;font-size:24px}
+#name{width:90%;padding:12px;border-radius:10px;border:0;font-size:17px;margin:5px}
+button{padding:11px 20px;border:0;border-radius:10px;font-weight:bold;font-size:16px;cursor:pointer}
+#start,#scoreBtn{margin:5px}#status{min-height:24px;color:#ffd54a;font-weight:bold}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:20;align-items:center;justify-content:center;padding:20px}
+.modalBox{position:relative;width:min(420px,94vw);max-height:80vh;overflow:auto;background:#1d1d1d;border:2px solid #555;border-radius:18px;padding:18px;box-shadow:0 10px 40px #000}
+.modalBox h2{margin:0 0 14px}.close{position:absolute;right:10px;top:10px;background:#333;color:#fff;padding:7px 10px;border-radius:8px}
+.modalRow{display:flex;justify-content:space-between;padding:9px 8px;border-bottom:1px solid #333;font-size:17px}
+canvas{width:100%;max-width:540px;background:#8ed8ff;border-radius:14px;display:block;margin:auto;touch-action:none}
+.board{background:#1d1d1d;border-radius:14px;padding:10px;margin-top:10px}
+.board h2{margin:3px 0 8px;font-size:19px}.row{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #333}
+.small{font-size:12px;color:#aaa;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🐦 Flappy Score Challenge</h1>
+<input id="name" maxlength="16" placeholder="Enter player name">
+<button id="start">START</button>
+<button id="scoreBtn">🏆 SCOREBOARD</button>
+<div id="status">Enter your name and press START</div>
+
+<div id="scoreModal" class="modal">
+  <div class="modalBox">
+    <button id="closeScores" class="close">✕</button>
+    <h2>🏆 LIVE SCOREBOARD</h2>
+    <div id="gameScores">Loading...</div>
+    <div class="small">Live • Permanent • Top 10</div>
+  </div>
+</div>
+<canvas id="game" width="540" height="640"></canvas>
+<div class="board"><h2>🏆 LIVE TOP 10</h2><div id="scores">Loading...</div>
+<div class="small">Scores are permanently saved online.</div>
+<div class="small">Tap the screen / press SPACE to fly • Speed increases as you score</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDlWE6wObQCDDMxbfMrVt3Y6LtPoYJH4ag",
+  authDomain: "flappy-bird021.firebaseapp.com",
+  projectId: "flappy-bird021",
+  storageBucket: "flappy-bird021.firebasestorage.app",
+  messagingSenderId: "475117497436",
+  appId: "1:475117497436:web:7463a452a5052093cc8a99",
+  measurementId: "G-1MRK38DQPN"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const board = document.getElementById("scores");
+const scoreQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
+
+onSnapshot(scoreQuery, snap => {
+  if(snap.empty){ board.innerHTML="<div>No scores yet — be the first!</div>"; return; }
+  board.innerHTML = snap.docs.map((d,i)=>{
+    const x=d.data();
+    return `<div class="row"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
+  }).join("");
+}, err => {
+  board.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
+  console.error(err);
+});
+
+const gameScores = document.getElementById("gameScores");
+onSnapshot(scoreQuery, snap => {
+  if(snap.empty){ gameScores.innerHTML="<div>No scores yet — be the first!</div>"; return; }
+  gameScores.innerHTML = snap.docs.map((d,i)=>{
+    const x=d.data();
+    return `<div class="modalRow"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
+  }).join("");
+}, err => {
+  gameScores.innerHTML = "<div>Leaderboard unavailable.</div>";
+  console.error(err);
+});
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+
+const c=document.getElementById("game"), ctx=c.getContext("2d");
+const W=c.width,H=c.height;
+let player, pipes=[], score=0, running=false, countdown=false, last=0, spawnTimer=0, name="";
+let bestCheckpoint=0;
+
+function reset(){
+  player={x:125,y:H/2,vy:0,r:18};
+  pipes=[]; score=0; spawnTimer=0; bestCheckpoint=0;
+}
+function addPipe(){
+  const early = score < 20;
+  // Very comfortable starting gap, then gradually tightens.
+  const gap = early ? 285 : Math.max(190, 285 - score * 0.30);
+  const margin = 105;
+  const center = margin + Math.random() * (H - margin * 2);
+  pipes.push({x:W+100,w:78,gap,top:center-gap/2,passed:false});
+}
+function speedLabel(){
+  return (2.8+Math.min(3.2,score*0.035)).toFixed(1);
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#7bd6ff");g.addColorStop(1,"#d8f6ff");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // clouds
+  ctx.fillStyle="rgba(255,255,255,.8)";
+  [[80,80,35],[110,75,28],[400,120,40],[430,112,25]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()});
+
+  // distant hills
+  ctx.fillStyle="rgba(91,190,105,.35)";
+  ctx.beginPath();ctx.moveTo(0,H-95);
+  for(let x=0;x<=W;x+=45) ctx.lineTo(x,H-95-(Math.sin(x*.025)*18+25));
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+
+  pipes.forEach(p=>{
+    const pipeGrad=ctx.createLinearGradient(p.x,0,p.x+p.w,0);
+    pipeGrad.addColorStop(0,"#237c35");pipeGrad.addColorStop(.45,"#55c85c");pipeGrad.addColorStop(1,"#1d7130");
+    ctx.fillStyle=pipeGrad;
+    ctx.fillRect(p.x,0,p.w,p.top);
+    ctx.fillRect(p.x,p.top+p.gap,p.w,H);
+
+    ctx.fillStyle="#185b28";
+    ctx.fillRect(p.x-7,p.top-15,p.w+14,15);
+    ctx.fillRect(p.x-7,p.top+p.gap,p.w+14,15);
+    ctx.fillStyle="rgba(255,255,255,.20)";
+    ctx.fillRect(p.x+9,0,7,p.top);
+    ctx.fillRect(p.x+9,p.top+p.gap+15,7,H);
+  });
+
+  // ground
+  ctx.fillStyle="#72b84b";ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle="#d4b34c";ctx.fillRect(0,H-8,W,8);
+  const birdGrad=ctx.createRadialGradient(player.x-5,player.y-7,3,player.x,player.y,22);
+  birdGrad.addColorStop(0,"#fff58a");birdGrad.addColorStop(1,"#ffb900");
+  ctx.fillStyle=birdGrad;ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#f08a00";ctx.beginPath();ctx.ellipse(player.x-5,player.y+7,11,6,-.25,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(player.x+7,player.y-6,6,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#111";ctx.beginPath();ctx.arc(player.x+9,player.y-6,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#ff7100";ctx.beginPath();ctx.moveTo(player.x+15,player.y);ctx.lineTo(player.x+31,player.y+6);ctx.lineTo(player.x+15,player.y+11);ctx.fill();
+
+  ctx.fillStyle="#fff";ctx.strokeStyle="#000";ctx.lineWidth=4;ctx.font="bold 42px Arial";ctx.textAlign="center";
+  ctx.strokeText(score,W/2,58);ctx.fillText(score,W/2,58);
+  ctx.font="bold 14px Arial";ctx.fillStyle="rgba(0,0,0,.45)";
+  ctx.fillText(`SPEED ${speedLabel()}`,W/2,82);
+}
+function flap(){ if(running) player.vy=-6.4; }
+
+function gameOver(){
+  if(!running)return;
+  running=false;
+  document.getElementById("status").textContent=`Game over! ${name}: ${score}`;
+  saveScore();
+}
+async function saveScore(){
+  try{
+    await addDoc(collection(db,"scores"),{
+      name:name.slice(0,16),
+      score:Number(score),
+      createdAt:serverTimestamp()
+    });
+  }catch(e){
+    console.error(e);
+    document.getElementById("status").textContent=`Score: ${score} (couldn't save online)`;
+  }
+}
+function start(){
+  name=(document.getElementById("name").value.trim()||"Player").slice(0,16);
+  reset(); countdown=true; running=false;
+  let n=3; document.getElementById("status").textContent=`Starting in ${n}...`;
+  const t=setInterval(()=>{
+    n--;
+    if(n>0) document.getElementById("status").textContent=`Starting in ${n}...`;
+    else{
+      clearInterval(t); countdown=false;running=true;
+      document.getElementById("status").textContent=`Playing as ${name}`;
+      last=performance.now();requestAnimationFrame(loop);
+    }
+  },1000);
+}
+function loop(now){
+  if(!running)return;
+  const d=Math.min(2,(now-last)/16.67);last=now;
+  // Faster, more responsive movement. Starts playable and ramps up.
+  const speed=2.8+Math.min(3.2,score*0.035);
+  player.vy+=0.23*d;player.y+=player.vy*d;
+  spawnTimer+=16.67*d;
+  // More horizontal distance between pipes, especially at the start.
+  const interval=score<20?1850:Math.max(850,1600-score*3.2);
+  if(pipes.length===0 || spawnTimer>interval){addPipe();spawnTimer=0;}
+  pipes.forEach(p=>{
+    p.x-=speed*d;
+    if(!p.passed && p.x+p.w<player.x){
+      p.passed=true;score++;
+      if(score%50===0 && score!==bestCheckpoint){
+        bestCheckpoint=score;
+        document.getElementById("status").textContent=`🎯 CHECKPOINT ${score}!`;
+      }
+    }
+  });
+  pipes=pipes.filter(p=>p.x+p.w>-20);
+  if(player.y-player.r<0||player.y+player.r>H)gameOver();
+  for(const p of pipes){
+    const hitX=player.x+player.r>p.x&&player.x-player.r<p.x+p.w;
+    const hitY=player.y-player.r<p.top||player.y+player.r>p.top+p.gap;
+    if(hitX&&hitY){gameOver();break;}
+  }
+  draw();requestAnimationFrame(loop);
+}
+document.getElementById("start").onclick=start;
+
+const scoreModal=document.getElementById("scoreModal");
+document.getElementById("scoreBtn").onclick=()=>{
+  scoreModal.style.display="flex";
+};
+document.getElementById("closeScores").onclick=()=>{
+  scoreModal.style.display="none";
+};
+scoreModal.addEventListener("click",e=>{
+  if(e.target===scoreModal) scoreModal.style.display="none";
+});
+
+c.addEventListener("pointerdown",flap);
+document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
+reset();draw();
+</script>
+</body>
+  </html>
+  
