@@ -188,7 +188,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">Tap screen or press SPACE to jump • Tap play repeatedly to grind your record</div>
+    <div class="small">Tap screen or press SPACE to jump • Your score updates when you beat your high score</div>
   </div>
 </div>
 
@@ -204,7 +204,7 @@ canvas {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
+  getFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
@@ -221,9 +221,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Unique player ID stored per phone/browser
 let playerId = localStorage.getItem("flappy_player_id");
 if(!playerId){
-  playerId = "player_" + Math.random().toString(36).substring(2, 11);
+  playerId = "p_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
   localStorage.setItem("flappy_player_id", playerId);
 }
 
@@ -234,28 +235,32 @@ if(savedName){
 }
 
 const board = document.getElementById("scores");
-const scoreQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
+const gameScores = document.getElementById("gameScores");
+const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
 
+// Real-time listener for leaderboard
 onSnapshot(scoreQuery, snap => {
-  if(snap.empty){ board.innerHTML="<div>No scores yet — be the first!</div>"; return; }
-  board.innerHTML = snap.docs.map((d,i)=>{
-    const x=d.data();
+  if (snap.empty) {
+    board.innerHTML = "<div>No scores yet — be the first!</div>";
+    gameScores.innerHTML = "<div>No scores yet — be the first!</div>";
+    return;
+  }
+  
+  const listHtml = snap.docs.map((d, i) => {
+    const x = d.data();
     return `<div class="row"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
   }).join("");
-}, err => {
-  board.innerHTML = "<div>Leaderboard unavailable.</div>";
-  console.error(err);
-});
 
-const gameScores = document.getElementById("gameScores");
-onSnapshot(scoreQuery, snap => {
-  if(snap.empty){ gameScores.innerHTML="<div>No scores yet — be the first!</div>"; return; }
-  gameScores.innerHTML = snap.docs.map((d,i)=>{
-    const x=d.data();
+  const modalHtml = snap.docs.map((d, i) => {
+    const x = d.data();
     return `<div class="modalRow"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
   }).join("");
+
+  board.innerHTML = listHtml;
+  gameScores.innerHTML = modalHtml;
 }, err => {
-  gameScores.innerHTML = "<div>Leaderboard unavailable.</div>";
+  board.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
+  gameScores.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
   console.error(err);
 });
 
@@ -337,15 +342,20 @@ function gameOver(){
 async function saveScore(){
   if(score <= 0) return;
   try{
-    await addDoc(collection(db,"scores"),{
-      playerId: playerId,
-      name: name.slice(0,16),
-      score: Number(score),
-      createdAt: serverTimestamp()
-    });
+    const playerRef = doc(db, "scores", playerId);
+    const existingDoc = await getDoc(playerRef);
+
+    // Update ONLY if player doesn't exist OR new score beats their personal high score
+    if(!existingDoc.exists() || score > existingDoc.data().score){
+      await setDoc(playerRef, {
+        name: name.slice(0, 16),
+        score: Number(score),
+        createdAt: serverTimestamp()
+      });
+      document.getElementById("status").textContent = `🎉 NEW PERSONAL BEST! ${name}: ${score}`;
+    }
   }catch(e){
     console.error(e);
-    document.getElementById("status").textContent=`Score: ${score} (couldn't save online)`;
   }
 }
 
@@ -412,4 +422,5 @@ document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();
 reset();draw();
 </script>
 </body>
-</html>
+  </html>
+  
