@@ -5,28 +5,192 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Flappy Score Challenge</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;min-height:100vh}
-.wrap{width:min(540px,100vw);padding:10px;text-align:center}h1{margin:6px 0;font-size:24px}
-#name{width:90%;padding:12px;border-radius:10px;border:0;font-size:17px;margin:5px}
-button{padding:11px 20px;border:0;border-radius:10px;font-weight:bold;font-size:16px;cursor:pointer}
-#start,#scoreBtn{margin:5px}#status{min-height:24px;color:#ffd54a;font-weight:bold}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:20;align-items:center;justify-content:center;padding:20px}
-.modalBox{position:relative;width:min(420px,94vw);max-height:80vh;overflow:auto;background:#1d1d1d;border:2px solid #555;border-radius:18px;padding:18px;box-shadow:0 10px 40px #000}
-.modalBox h2{margin:0 0 14px}.close{position:absolute;right:10px;top:10px;background:#333;color:#fff;padding:7px 10px;border-radius:8px}
-.modalRow{display:flex;justify-content:space-between;padding:9px 8px;border-bottom:1px solid #333;font-size:17px}
-canvas{width:100%;max-width:540px;background:#8ed8ff;border-radius:14px;display:block;margin:auto;touch-action:none}
-.board{background:#1d1d1d;border-radius:14px;padding:10px;margin-top:10px}
-.board h2{margin:3px 0 8px;font-size:19px}.row{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #333}
-.small{font-size:12px;color:#aaa;margin-top:6px}
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+body {
+  margin: 0;
+  background: #0a0e17;
+  color: #fff;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 10px;
+}
+.wrap {
+  width: min(540px, 100vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+h1 {
+  margin: 4px 0 8px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #ffd54a, #ff7100);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 4px 12px rgba(255, 113, 0, 0.2);
+}
+.controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+#name {
+  flex: 1;
+  min-width: 180px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+#name:focus {
+  border-color: #ffd54a;
+  box-shadow: 0 0 12px rgba(255, 213, 74, 0.3);
+}
+button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+button:active {
+  transform: scale(0.96);
+}
+#start {
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+#scoreBtn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+}
+#status {
+  min-height: 24px;
+  color: #ffd54a;
+  font-weight: 600;
+  font-size: 15px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+canvas {
+  width: 100%;
+  max-width: 540px;
+  background: #8ed8ff;
+  border-radius: 18px;
+  display: block;
+  margin: auto;
+  touch-action: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+.board {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.board h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #ffd54a;
+  letter-spacing: 0.5px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 15px;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.small {
+  font-size: 12px;
+  color: #888;
+  margin-top: 6px;
+}
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+}
+.modalBox {
+  position: relative;
+  width: min(420px, 94vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: #141a26;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+}
+.modalBox h2 {
+  margin: 0 0 16px;
+  color: #ffd54a;
+}
+.close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+.modalRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 16px;
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>🐦 Flappy Score Challenge</h1>
-<input id="name" maxlength="16" placeholder="Enter player name">
-<button id="start">START</button>
-<button id="scoreBtn">🏆 SCOREBOARD</button>
-<div id="status">Enter your name and press START</div>
+  <h1>🐦 Flappy Score Challenge</h1>
+  <div class="controls">
+    <input id="name" maxlength="16" placeholder="Enter player name">
+    <button id="start">START</button>
+    <button id="scoreBtn">🏆 SCORES</button>
+  </div>
+  <div id="status">Enter your name and press START</div>
+
+  <canvas id="game" width="540" height="640"></canvas>
+
+  <div class="board">
+    <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
+    <div id="scores">Loading...</div>
+    <div class="small">Tap screen or press SPACE to jump • Tap play repeatedly to grind your record</div>
+  </div>
+</div>
 
 <div id="scoreModal" class="modal">
   <div class="modalBox">
@@ -35,11 +199,6 @@ canvas{width:100%;max-width:540px;background:#8ed8ff;border-radius:14px;display:
     <div id="gameScores">Loading...</div>
     <div class="small">Live • Permanent • Top 10</div>
   </div>
-</div>
-<canvas id="game" width="540" height="640"></canvas>
-<div class="board"><h2>🏆 LIVE TOP 10</h2><div id="scores">Loading...</div>
-<div class="small">Scores are permanently saved online.</div>
-<div class="small">Tap the screen / press SPACE to fly • Speed increases as you score</div></div>
 </div>
 
 <script type="module">
@@ -62,7 +221,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Load saved name from previous session
+let playerId = localStorage.getItem("flappy_player_id");
+if(!playerId){
+  playerId = "player_" + Math.random().toString(36).substring(2, 11);
+  localStorage.setItem("flappy_player_id", playerId);
+}
+
 const nameInput = document.getElementById("name");
 const savedName = localStorage.getItem("flappy_player_name");
 if(savedName){
@@ -79,7 +243,7 @@ onSnapshot(scoreQuery, snap => {
     return `<div class="row"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
   }).join("");
 }, err => {
-  board.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
+  board.innerHTML = "<div>Leaderboard unavailable.</div>";
   console.error(err);
 });
 
@@ -171,12 +335,13 @@ function gameOver(){
 }
 
 async function saveScore(){
-  if(score <= 0) return; // Don't save 0 scores
+  if(score <= 0) return;
   try{
     await addDoc(collection(db,"scores"),{
-      name:name.slice(0,16),
-      score:Number(score),
-      createdAt:serverTimestamp()
+      playerId: playerId,
+      name: name.slice(0,16),
+      score: Number(score),
+      createdAt: serverTimestamp()
     });
   }catch(e){
     console.error(e);
@@ -185,8 +350,8 @@ async function saveScore(){
 }
 
 function start(){
-  name=(document.getElementById("name").value.trim()||"Player").slice(0,16);
-  // Remember player name on phone
+  const nameInput = document.getElementById("name");
+  name = (nameInput.value.trim() || "Player").slice(0,16);
   localStorage.setItem("flappy_player_name", name);
   
   reset(); countdown=true; running=false;
