@@ -5,172 +5,54 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Flappy Score Challenge</title>
 <style>
-* {
-  box-sizing: border-box;
-  user-select: none;
-}
+* { box-sizing: border-box; user-select: none; }
 body {
-  margin: 0;
-  background: #0a0e17;
-  color: #fff;
+  margin: 0; background: #0a0e17; color: #fff;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 10px;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; padding: 10px;
 }
-.wrap {
-  width: min(540px, 100vw);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.wrap { width: min(540px, 100vw); text-align: center; display: flex; flex-direction: column; gap: 12px; }
 h1 {
-  margin: 4px 0 8px;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  margin: 4px 0 8px; font-size: 26px; font-weight: 800;
   background: linear-gradient(135deg, #ffd54a, #ff7100);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 4px 12px rgba(255, 113, 0, 0.2);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
-.controls {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-}
+.controls { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
 #name {
-  flex: 1;
-  min-width: 180px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  font-size: 16px;
-  outline: none;
-  backdrop-filter: blur(10px);
-  transition: all 0.2s ease;
-}
-#name:focus {
-  border-color: #ffd54a;
-  box-shadow: 0 0 12px rgba(255, 213, 74, 0.3);
+  flex: 1; min-width: 180px; padding: 12px 16px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.15); background: rgba(255, 255, 255, 0.07);
+  color: #fff; font-size: 16px; outline: none;
 }
 button {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  padding: 12px 20px; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 15px; cursor: pointer;
 }
-button:active {
-  transform: scale(0.96);
-}
-#start {
-  background: linear-gradient(135deg, #4caf50, #2e7d32);
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-}
-#scoreBtn {
-  background: linear-gradient(135deg, #ff9800, #f57c00);
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
-}
-#status {
-  min-height: 24px;
-  color: #ffd54a;
-  font-weight: 600;
-  font-size: 15px;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
+#start { background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; }
+#scoreBtn { background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; }
+#status { min-height: 24px; color: #ffd54a; font-weight: 600; font-size: 15px; }
 canvas {
-  width: 100%;
-  max-width: 540px;
-  background: #8ed8ff;
-  border-radius: 18px;
-  display: block;
-  margin: auto;
-  touch-action: none;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.1);
+  width: 100%; max-width: 540px; background: #8ed8ff; border-radius: 18px;
+  display: block; margin: auto; touch-action: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
 }
 .board {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 16px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px; padding: 16px; backdrop-filter: blur(12px);
 }
-.board h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  color: #ffd54a;
-  letter-spacing: 0.5px;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 15px;
-}
-.row:last-child {
-  border-bottom: none;
-}
-.small {
-  font-size: 12px;
-  color: #888;
-  margin-top: 6px;
-}
+.board h2 { margin: 0 0 12px; font-size: 18px; color: #ffd54a; }
+.row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 15px; }
+.small { font-size: 12px; color: #888; margin-top: 6px; }
 .modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 20;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  backdrop-filter: blur(8px);
+  display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+  z-index: 20; align-items: center; justify-content: center; padding: 20px;
 }
 .modalBox {
-  position: relative;
-  width: min(420px, 94vw);
-  max-height: 80vh;
-  overflow: auto;
-  background: #141a26;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  position: relative; width: min(420px, 94vw); max-height: 80vh; overflow: auto;
+  background: #141a26; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 20px;
 }
-.modalBox h2 {
-  margin: 0 0 16px;
-  color: #ffd54a;
-}
-.close {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 10px;
-}
-.modalRow {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 16px;
-}
+.close { position: absolute; right: 12px; top: 12px; background: rgba(255, 255, 255, 0.1); color: #fff; padding: 6px 12px; border-radius: 10px; }
+.modalRow { display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 16px; }
 </style>
 </head>
 <body>
@@ -188,7 +70,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">Tap screen or press SPACE to jump • Your score updates when you beat your high score</div>
+    <div class="small">Tap screen / press SPACE to jump • Scores update live on high score</div>
   </div>
 </div>
 
@@ -221,10 +103,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Unique player ID stored per phone/browser
+// Unique player document ID per phone/browser
 let playerId = localStorage.getItem("flappy_player_id");
 if(!playerId){
-  playerId = "p_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+  playerId = "player_" + Math.random().toString(36).substring(2, 11);
   localStorage.setItem("flappy_player_id", playerId);
 }
 
@@ -238,7 +120,7 @@ const board = document.getElementById("scores");
 const gameScores = document.getElementById("gameScores");
 const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
 
-// Real-time listener for leaderboard
+// Single live subscription for both leaderboards
 onSnapshot(scoreQuery, snap => {
   if (snap.empty) {
     board.innerHTML = "<div>No scores yet — be the first!</div>";
@@ -259,8 +141,8 @@ onSnapshot(scoreQuery, snap => {
   board.innerHTML = listHtml;
   gameScores.innerHTML = modalHtml;
 }, err => {
-  board.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
-  gameScores.innerHTML = "<div>Leaderboard unavailable. Check Firestore rules.</div>";
+  board.innerHTML = "<div>Leaderboard unavailable.</div>";
+  gameScores.innerHTML = "<div>Leaderboard unavailable.</div>";
   console.error(err);
 });
 
@@ -343,19 +225,20 @@ async function saveScore(){
   if(score <= 0) return;
   try{
     const playerRef = doc(db, "scores", playerId);
-    const existingDoc = await getDoc(playerRef);
+    const docSnap = await getDoc(playerRef);
 
-    // Update ONLY if player doesn't exist OR new score beats their personal high score
-    if(!existingDoc.exists() || score > existingDoc.data().score){
+    // Save/update score if document doesn't exist OR if new score beats personal record
+    if(!docSnap.exists() || score > docSnap.data().score){
       await setDoc(playerRef, {
         name: name.slice(0, 16),
         score: Number(score),
         createdAt: serverTimestamp()
-      });
+      }, { merge: true });
       document.getElementById("status").textContent = `🎉 NEW PERSONAL BEST! ${name}: ${score}`;
     }
   }catch(e){
     console.error(e);
+    document.getElementById("status").textContent = `Score: ${score} (saving failed - check Firebase rules)`;
   }
 }
 
@@ -422,5 +305,5 @@ document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();
 reset();draw();
 </script>
 </body>
-  </html>
+    </html>
   
