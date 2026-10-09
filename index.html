@@ -34,8 +34,8 @@ button:active { transform: scale(0.95); }
 #restartBtn { background: linear-gradient(135deg, #f44336, #c62828); color: #fff; }
 #scoreBtn { background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; }
 #status { min-height: 22px; color: #ffd54a; font-weight: 600; font-size: 14px; }
-.timerBox {
-  font-size: 13px; font-weight: 700; color: #8ed8ff;
+.statsBar {
+  display: flex; justify-content: space-around; font-size: 13px; font-weight: 700; color: #8ed8ff;
   background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 6px;
 }
 canvas {
@@ -48,30 +48,33 @@ canvas {
   border-radius: 18px; padding: 14px; backdrop-filter: blur(12px);
 }
 .board h2 { margin: 0 0 10px; font-size: 17px; color: #ffd54a; }
-.row { display: flex; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 13px; }
 .small { font-size: 11px; color: #888; margin-top: 6px; }
 .modal {
   display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
   z-index: 20; align-items: center; justify-content: center; padding: 20px;
 }
 .modalBox {
-  position: relative; width: min(420px, 94vw); max-height: 80vh; overflow: auto;
+  position: relative; width: min(460px, 94vw); max-height: 80vh; overflow: auto;
   background: #141a26; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 20px;
 }
 .close { position: absolute; right: 12px; top: 12px; background: rgba(255, 255, 255, 0.1); color: #fff; padding: 6px 12px; border-radius: 10px; }
-.modalRow { display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 16px; }
+.modalRow { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🐦 Flappy Score Challenge</h1>
   <div class="controls">
-    <input id="name" maxlength="16" placeholder="Enter player name">
+    <input id="name" maxlength="16" placeholder="Enter player name (Required)">
     <button id="start">START</button>
     <button id="restartBtn">🔄 RESTART</button>
     <button id="scoreBtn">🏆 SCORES</button>
   </div>
-  <div class="timerBox">⏱️ TOTAL PLAYTIME: <span id="playtime">0m 0s</span></div>
+  <div class="statsBar">
+    <span>⏱️ PLAYTIME: <span id="playtime">0m 0s</span></span>
+    <span>🪙 COINS: <span id="coins">0</span></span>
+  </div>
   <div id="status">Enter your name and press START</div>
 
   <canvas id="game" width="540" height="640"></canvas>
@@ -79,14 +82,14 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">Checkpoints save every 50 pts • Press RESTART to reset your progress</div>
+    <div class="small">Checkpoints give bonus score • Permanent Coins • Name required</div>
   </div>
 </div>
 
 <div id="scoreModal" class="modal">
   <div class="modalBox">
     <button id="closeScores" class="close">✕</button>
-    <h2>🏆 LIVE SCOREBOARD</h2>
+    <h2>🏆 LIVE LEADERBOARD</h2>
     <div id="gameScores">Loading...</div>
     <div class="small">Live • Permanent • Top 10</div>
   </div>
@@ -120,20 +123,30 @@ if(!playerId){
 
 let checkpointScore = parseInt(localStorage.getItem("flappy_checkpoint")) || 0;
 let totalPlayTime = parseInt(localStorage.getItem("flappy_playtime")) || 0;
+let totalCoins = parseInt(localStorage.getItem("flappy_coins")) || 0;
 
 const playtimeElem = document.getElementById("playtime");
-function updatePlaytimeDisplay(){
+const coinsElem = document.getElementById("coins");
+
+function updateStatsDisplay(){
   const mins = Math.floor(totalPlayTime / 60);
   const secs = totalPlayTime % 60;
   playtimeElem.textContent = `${mins}m ${secs}s`;
+  coinsElem.textContent = totalCoins;
 }
-updatePlaytimeDisplay();
+updateStatsDisplay();
+
+function formatTime(seconds){
+  const m = Math.floor((seconds || 0) / 60);
+  const s = (seconds || 0) % 60;
+  return `${m}m ${s}s`;
+}
 
 setInterval(() => {
   if (running) {
     totalPlayTime++;
     localStorage.setItem("flappy_playtime", totalPlayTime);
-    updatePlaytimeDisplay();
+    updateStatsDisplay();
   }
 }, 1000);
 
@@ -156,12 +169,18 @@ onSnapshot(scoreQuery, snap => {
   
   const listHtml = snap.docs.map((d, i) => {
     const x = d.data();
-    return `<div class="row"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
+    return `<div class="row">
+      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Number(x.totalCoins)||0} | ⏱️ ${formatTime(x.playtime)}</span>
+    </div>`;
   }).join("");
 
   const modalHtml = snap.docs.map((d, i) => {
     const x = d.data();
-    return `<div class="modalRow"><span>${i+1}. ${escapeHtml(x.name || "Player")}</span><b>${Number(x.score)||0}</b></div>`;
+    return `<div class="modalRow">
+      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Number(x.totalCoins)||0} | ⏱️ ${formatTime(x.playtime)}</span>
+    </div>`;
   }).join("");
 
   board.innerHTML = listHtml;
@@ -265,17 +284,26 @@ function gameOver(){
 }
 
 async function saveScore(){
-  if(score <= 0) return;
   try{
     const playerRef = doc(db, "scores", playerId);
     const docSnap = await getDoc(playerRef);
 
-    if(!docSnap.exists() || score > docSnap.data().score){
-      await setDoc(playerRef, {
-        name: name.slice(0, 16),
-        score: Number(score),
-        createdAt: serverTimestamp()
-      }, { merge: true });
+    let previousBest = 0;
+    if(docSnap.exists()){
+      previousBest = docSnap.data().score || 0;
+    }
+
+    const newBestScore = Math.max(previousBest, score);
+
+    await setDoc(playerRef, {
+      name: name.slice(0, 16),
+      score: Number(newBestScore),
+      totalCoins: Number(totalCoins),
+      playtime: Number(totalPlayTime),
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    if(score > previousBest && score > 0){
       document.getElementById("status").textContent = `🎉 NEW HIGH SCORE! ${name}: ${score}`;
     }
   }catch(e){
@@ -285,7 +313,15 @@ async function saveScore(){
 
 function startGame(hardReset = false){
   const nameInput = document.getElementById("name");
-  name = (nameInput.value.trim() || "Player").slice(0,16);
+  const enteredName = nameInput.value.trim();
+
+  if(!enteredName){
+    document.getElementById("status").textContent = "⚠️ Please enter your name before playing!";
+    nameInput.focus();
+    return;
+  }
+
+  name = enteredName.slice(0,16);
   localStorage.setItem("flappy_player_name", name);
   
   resetGame(hardReset); 
@@ -318,43 +354,28 @@ function loop(now){
   pipes.forEach(p=>{
     p.x-=speed*d;
     if(!p.passed && p.x+p.w<player.x){
-      p.passed=true;score++;
+      p.passed=true;
+      score++;
       
+      // Earn 1 Coin for every point cleared
+      totalCoins++;
+      localStorage.setItem("flappy_coins", totalCoins);
+      updateStatsDisplay();
+
+      // Grant random bonus score + coins when crossing a 50-point checkpoint
       if(score > 0 && score % 50 === 0 && score > checkpointScore){
         checkpointScore = score;
         localStorage.setItem("flappy_checkpoint", checkpointScore);
-        document.getElementById("status").textContent = `🎯 CHECKPOINT ${score} SAVED!`;
+        
+        const bonus = Math.floor(Math.random() * 11) + 5; // Random bonus between 5 and 15
+        score += bonus;
+        totalCoins += bonus;
+        localStorage.setItem("flappy_coins", totalCoins);
+        updateStatsDisplay();
+
+        document.getElementById("status").textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${bonus} BONUS POINTS & COINS!`;
       }
     }
   });
   
-  pipes=pipes.filter(p=>p.x+p.w>-20);
-  if(player.y-player.r<0||player.y+player.r>H)gameOver();
-  for(const p of pipes){
-    const hitX=player.x+player.r>p.x&&player.x-player.r<p.x+p.w;
-    const hitY=player.y-player.r<p.top||player.y+player.r>p.top+p.gap;
-    if(hitX&&hitY){gameOver();break;}
-  }
-  draw();requestAnimationFrame(loop);
-}
-
-document.getElementById("start").onclick = () => startGame(false);
-document.getElementById("restartBtn").onclick = () => startGame(true);
-
-const scoreModal=document.getElementById("scoreModal");
-document.getElementById("scoreBtn").onclick=()=>{
-  scoreModal.style.display="flex";
-};
-document.getElementById("closeScores").onclick=()=>{
-  scoreModal.style.display="none";
-};
-scoreModal.addEventListener("click",e=>{
-  if(e.target===scoreModal) scoreModal.style.display="none";
-});
-
-c.addEventListener("pointerdown",flap);
-document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
-resetGame(false);draw();
-</script>
-</body>
-</html>
+  pipes=pipes.filter(p
