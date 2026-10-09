@@ -92,7 +92,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">1.2x Coins after Score 50 • Dynamic Pipe Distance • Name required</div>
+    <div class="small">1.2x Coins after Score 50 • Dynamic Pipe Spacing • Name required</div>
   </div>
 </div>
 
@@ -136,6 +136,7 @@ canvas {
 </div>
 
 <script type="module">
+// Version 2.0.0 - Stability Guard
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, onSnapshot,
@@ -152,8 +153,13 @@ const firebaseConfig = {
   measurementId: "G-1MRK38DQPN"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+let app, db;
+try {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+} catch(e) {
+  console.error("Firebase init fallback:", e);
+}
 
 let playerId = localStorage.getItem("flappy_player_id");
 if(!playerId){
@@ -204,44 +210,50 @@ if(savedName && nameInput){
 
 const board = document.getElementById("scores");
 const gameScores = document.getElementById("gameScores");
-const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
 
-onSnapshot(scoreQuery, snap => {
-  if (snap.empty) {
-    if(board) board.innerHTML = "<div>No scores yet — be the first!</div>";
-    if(gameScores) gameScores.innerHTML = "<div>No scores yet — be the first!</div>";
-    return;
+if(db) {
+  try {
+    const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
+    onSnapshot(scoreQuery, snap => {
+      if (snap.empty) {
+        if(board) board.innerHTML = "<div>No scores yet — be the first!</div>";
+        if(gameScores) gameScores.innerHTML = "<div>No scores yet — be the first!</div>";
+        return;
+      }
+      
+      const listHtml = snap.docs.map((d, i) => {
+        const x = d.data();
+        return `<div class="row">
+          <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+          <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
+        </div>`;
+      }).join("");
+
+      const modalHtml = snap.docs.map((d, i) => {
+        const x = d.data();
+        return `<div class="modalRow">
+          <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+          <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
+        </div>`;
+      }).join("");
+
+      if(board) board.innerHTML = listHtml;
+      if(gameScores) gameScores.innerHTML = modalHtml;
+    }, err => {
+      if(board) board.innerHTML = "<div>Leaderboard offline.</div>";
+      if(gameScores) gameScores.innerHTML = "<div>Leaderboard offline.</div>";
+    });
+  } catch(e) {
+    console.error("Firestore error:", e);
   }
-  
-  const listHtml = snap.docs.map((d, i) => {
-    const x = d.data();
-    return `<div class="row">
-      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
-    </div>`;
-  }).join("");
-
-  const modalHtml = snap.docs.map((d, i) => {
-    const x = d.data();
-    return `<div class="modalRow">
-      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
-    </div>`;
-  }).join("");
-
-  if(board) board.innerHTML = listHtml;
-  if(gameScores) gameScores.innerHTML = modalHtml;
-}, err => {
-  if(board) board.innerHTML = "<div>Leaderboard unavailable.</div>";
-  if(gameScores) gameScores.innerHTML = "<div>Leaderboard unavailable.</div>";
-});
+}
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
 
-const c=document.getElementById("game"), ctx=c.getContext("2d");
-const W=c.width,H=c.height;
+const c=document.getElementById("game"), ctx=c ? c.getContext("2d") : null;
+const W=c ? c.width : 540, H=c ? c.height : 640;
 let player={x:125, y:H/2, vy:0, r:18}, pipes=[], score=0, running=false, last=0, spawnTimer=0, name="";
 
 function resetGame(hardReset = false){
@@ -272,6 +284,7 @@ function currentSpeed(){
 }
 
 function draw(){
+  if(!ctx) return;
   try {
     ctx.clearRect(0,0,W,H);
     
@@ -353,16 +366,20 @@ function gameOver(){
   if(!running)return;
   running=false;
   
-  if (checkpointScore > 0) {
-    document.getElementById("status").textContent = `Game Over! Restarting will keep your Checkpoint at ${checkpointScore}`;
-  } else {
-    document.getElementById("status").textContent = `Game over! ${name}: ${score}`;
+  const statusElem = document.getElementById("status");
+  if(statusElem) {
+    if (checkpointScore > 0) {
+      statusElem.textContent = `Game Over! Restarting will keep your Checkpoint at ${checkpointScore}`;
+    } else {
+      statusElem.textContent = `Game over! ${name}: ${score}`;
+    }
   }
   
   saveScore();
 }
 
 async function saveScore(){
+  if(!db) return;
   try{
     const playerRef = doc(db, "scores", playerId);
     const docSnap = await getDoc(playerRef);
@@ -382,8 +399,9 @@ async function saveScore(){
       createdAt: serverTimestamp()
     }, { merge: true });
 
-    if(score > previousBest && score > 0){
-      document.getElementById("status").textContent = `🎉 NEW HIGH SCORE! ${name}: ${score}`;
+    const statusElem = document.getElementById("status");
+    if(score > previousBest && score > 0 && statusElem){
+      statusElem.textContent = `🎉 NEW HIGH SCORE! ${name}: ${score}`;
     }
   }catch(e){
     console.error(e);
@@ -393,9 +411,10 @@ async function saveScore(){
 function startGame(hardReset = false){
   const nameInput = document.getElementById("name");
   const enteredName = nameInput ? nameInput.value.trim() : "";
+  const statusElem = document.getElementById("status");
 
   if(!enteredName){
-    document.getElementById("status").textContent = "⚠️ Please enter your name before playing!";
+    if(statusElem) statusElem.textContent = "⚠️ Please enter your name before playing!";
     if(nameInput) nameInput.focus();
     return;
   }
@@ -406,15 +425,19 @@ function startGame(hardReset = false){
   resetGame(hardReset); 
   running=false;
   
-  let n=3; document.getElementById("status").textContent=`Starting in ${n}...`;
+  let n=3; 
+  if(statusElem) statusElem.textContent=`Starting in ${n}...`;
   const t=setInterval(()=>{
     n--;
-    if(n>0) document.getElementById("status").textContent=`Starting in ${n}...`;
-    else{
+    if(n>0) {
+      if(statusElem) statusElem.textContent=`Starting in ${n}...`;
+    } else {
       clearInterval(t); running=true;
-      document.getElementById("status").textContent = checkpointScore > 0 
-        ? `Playing as ${name} (Checkpoint Position: ${checkpointScore})` 
-        : `Playing as ${name}`;
+      if(statusElem) {
+        statusElem.textContent = checkpointScore > 0 
+          ? `Playing as ${name} (Checkpoint Position: ${checkpointScore})` 
+          : `Playing as ${name}`;
+      }
       last=performance.now();requestAnimationFrame(loop);
     }
   },1000);
@@ -431,7 +454,6 @@ function loop(now){
 
   spawnTimer += 16.67 * d;
   
-  // Pushes the poles farther apart as speed increases to give extra reaction time
   const interval = score < 20 ? 1850 : Math.min(2600, 1600 + score * 8.5);
   if(pipes.length === 0 || spawnTimer > interval){ addPipe(); spawnTimer = 0; }
 
@@ -459,7 +481,8 @@ function loop(now){
         localStorage.setItem("flappy_coins", totalCoins);
         updateStatsDisplay();
 
-        document.getElementById("status").textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${finalBonus} BONUS COINS (${coinMultiplier}x)!`;
+        const statusElem = document.getElementById("status");
+        if(statusElem) statusElem.textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${finalBonus} BONUS COINS (${coinMultiplier}x)!`;
       }
     }
   });
@@ -474,24 +497,92 @@ function loop(now){
   draw();requestAnimationFrame(loop);
 }
 
-document.getElementById("start").onclick = () => startGame(false);
-document.getElementById("restartBtn").onclick = () => startGame(false);
-document.getElementById("resetGameBtn").onclick = () => {
-  document.getElementById("status").textContent = "🔄 Game reset back to Score 0!";
+const startBtn = document.getElementById("start");
+const restartBtn = document.getElementById("restartBtn");
+const resetBtn = document.getElementById("resetGameBtn");
+
+if(startBtn) startBtn.onclick = () => startGame(false);
+if(restartBtn) restartBtn.onclick = () => startGame(false);
+if(resetBtn) resetBtn.onclick = () => {
+  const statusElem = document.getElementById("status");
+  if(statusElem) statusElem.textContent = "🔄 Game reset back to Score 0!";
   startGame(true);
 };
 
 const scoreModal=document.getElementById("scoreModal");
-document.getElementById("scoreBtn").onclick=()=>{ if(scoreModal) scoreModal.style.display="flex"; };
-document.getElementById("closeScores").onclick=()=>{ if(scoreModal) scoreModal.style.display="none"; };
+const scoreBtn=document.getElementById("scoreBtn");
+const closeScores=document.getElementById("closeScores");
+if(scoreBtn) scoreBtn.onclick=()=>{ if(scoreModal) scoreModal.style.display="flex"; };
+if(closeScores) closeScores.onclick=()=>{ if(scoreModal) scoreModal.style.display="none"; };
 
 const shopModal=document.getElementById("shopModal");
-document.getElementById("shopBtn").onclick=()=>{ updateShopUI(); if(shopModal) shopModal.style.display="flex"; };
-document.getElementById("closeShop").onclick=()=>{ if(shopModal) shopModal.style.display="none"; };
+const shopBtn=document.getElementById("shopBtn");
+const closeShop=document.getElementById("closeShop");
+if(shopBtn) shopBtn.onclick=()=>{ updateShopUI(); if(shopModal) shopModal.style.display="flex"; };
+if(closeShop) closeShop.onclick=()=>{ if(shopModal) shopModal.style.display="none"; };
 
 function updateShopUI(){
   const items = [
     { type: 'skin', id: 'classic', cost: 0, btn: document.getElementById("skin_classic") },
     { type: 'skin', id: 'golden', cost: 100, btn: document.getElementById("skin_golden") },
     { type: 'skin', id: 'cyber', cost: 250, btn: document.getElementById("skin_cyber") },
-    { type: 'skin', id: 'phoenix', cost: 750, btn: document.getElementById(
+    { type: 'skin', id: 'phoenix', cost: 750, btn: document.getElementById("skin_phoenix") },
+    { type: 'skin', id: 'void', cost: 1500, btn: document.getElementById("skin_void") },
+    { type: 'skin', id: 'royal', cost: 3000, btn: document.getElementById("skin_royal") },
+    { type: 'bg', id: 'classic', cost: 0, btn: document.getElementById("bg_classic") },
+    { type: 'bg', id: 'night', cost: 150, btn: document.getElementById("bg_night") },
+    { type: 'bg', id: 'sunset', cost: 300, btn: document.getElementById("bg_sunset") },
+    { type: 'bg', id: 'space', cost: 800, btn: document.getElementById("bg_space") },
+    { type: 'bg', id: 'cyber', cost: 2000, btn: document.getElementById("bg_cyber") }
+  ];
+
+  items.forEach(item => {
+    if(!item.btn) return;
+    const isSkin = item.type === 'skin';
+    const unlocked = isSkin ? unlockedSkins.includes(item.id) : unlockedBgs.includes(item.id);
+    const active = isSkin ? activeSkin === item.id : activeBg === item.id;
+
+    if(active){
+      item.btn.textContent = "Equipped";
+      item.btn.disabled = true;
+    } else if(unlocked){
+      item.btn.textContent = "Equip";
+      item.btn.disabled = false;
+      item.btn.onclick = () => {
+        if(isSkin) activeSkin = item.id;
+        else activeBg = item.id;
+        localStorage.setItem(isSkin ? "flappy_active_skin" : "flappy_active_bg", item.id);
+        updateShopUI();
+        draw();
+      };
+    } else {
+      item.btn.textContent = `Buy (${item.cost})`;
+      item.btn.disabled = false;
+      item.btn.onclick = () => {
+        if(totalCoins >= item.cost){
+          totalCoins -= item.cost;
+          localStorage.setItem("flappy_coins", totalCoins);
+          if(isSkin) unlockedSkins.push(item.id);
+          else unlockedBgs.push(item.id);
+          localStorage.setItem(isSkin ? "flappy_unlocked_skins" : "flappy_unlocked_bgs", JSON.stringify(isSkin ? unlockedSkins : unlockedBgs));
+          updateShopUI();
+          updateStatsDisplay();
+        } else {
+          const statusElem = document.getElementById("status");
+          if(statusElem) statusElem.textContent = "⚠️ Not enough coins for this item!";
+        }
+      };
+    }
+  });
+}
+
+if(c) {
+  c.addEventListener("pointerdown", flap);
+}
+document.addEventListener("keydown", e => { if(e.code === "Space"){ e.preventDefault(); flap(); } });
+
+resetGame(false);
+draw();
+</script>
+</body>
+</html>
