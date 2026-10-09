@@ -92,7 +92,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">1.2x Coins after Score 50 • Permanent Checkpoints & Skins • Name required</div>
+    <div class="small">1.2x Coins after Score 50 • Dynamic Pipe Distance • Name required</div>
   </div>
 </div>
 
@@ -254,21 +254,21 @@ function resetGame(hardReset = false){
     checkpointScore = 0;
     localStorage.removeItem("flappy_checkpoint");
   } else {
-    // Respawn directly at the saved checkpoint level score
     score = checkpointScore;
   }
 }
 
 function addPipe(){
   const early = score < 20;
-  const gap = early ? 285 : Math.max(190, 285 - score * 0.30);
+  const minGap = Math.max(195, 285 - score * 0.22);
+  const gap = early ? 285 : minGap;
   const margin = 105;
   const center = margin + Math.random() * (H - margin * 2);
   pipes.push({x:W+100,w:78,gap,top:center-gap/2,passed:false});
 }
 
 function currentSpeed(){
-  return 2.8 + Math.min(3.2, score * 0.035);
+  return 2.8 + Math.min(2.7, score * 0.025);
 }
 
 function draw(){
@@ -343,7 +343,11 @@ function draw(){
   } catch(e) {}
 }
 
-function flap(){ if(running) player.vy=-6.4; }
+function flap(){ 
+  if(running) {
+    player.vy = -5.8; 
+  } 
+}
 
 function gameOver(){
   if(!running)return;
@@ -421,10 +425,15 @@ function loop(now){
   const d=Math.min(2,(now-last)/16.67);last=now;
   const speed=currentSpeed();
   
-  player.vy+=0.23*d;player.y+=player.vy*d;
-  spawnTimer+=16.67*d;
-  const interval=score<20?1850:Math.max(850,1600-score*3.2);
-  if(pipes.length===0 || spawnTimer>interval){addPipe();spawnTimer=0;}
+  player.vy += 0.21 * d;
+  player.vy = Math.min(player.vy, 7.5);
+  player.y += player.vy * d;
+
+  spawnTimer += 16.67 * d;
+  
+  // Pushes the poles farther apart as speed increases to give extra reaction time
+  const interval = score < 20 ? 1850 : Math.min(2600, 1600 + score * 8.5);
+  if(pipes.length === 0 || spawnTimer > interval){ addPipe(); spawnTimer = 0; }
 
   const coinMultiplier = score >= 50 ? 1.2 : 1.0;
   if(multiElem) multiElem.textContent = `${coinMultiplier.toFixed(1)}x`;
@@ -485,59 +494,4 @@ function updateShopUI(){
     { type: 'skin', id: 'classic', cost: 0, btn: document.getElementById("skin_classic") },
     { type: 'skin', id: 'golden', cost: 100, btn: document.getElementById("skin_golden") },
     { type: 'skin', id: 'cyber', cost: 250, btn: document.getElementById("skin_cyber") },
-    { type: 'skin', id: 'phoenix', cost: 750, btn: document.getElementById("skin_phoenix") },
-    { type: 'skin', id: 'void', cost: 1500, btn: document.getElementById("skin_void") },
-    { type: 'skin', id: 'royal', cost: 3000, btn: document.getElementById("skin_royal") },
-    { type: 'bg', id: 'classic', cost: 0, btn: document.getElementById("bg_classic") },
-    { type: 'bg', id: 'night', cost: 150, btn: document.getElementById("bg_night") },
-    { type: 'bg', id: 'sunset', cost: 300, btn: document.getElementById("bg_sunset") },
-    { type: 'bg', id: 'space', cost: 800, btn: document.getElementById("bg_space") },
-    { type: 'bg', id: 'cyber', cost: 2000, btn: document.getElementById("bg_cyber") }
-  ];
-
-  items.forEach(item => {
-    if(!item.btn) return;
-    const isSkin = item.type === 'skin';
-    const unlocked = isSkin ? unlockedSkins.includes(item.id) : unlockedBgs.includes(item.id);
-    const active = isSkin ? activeSkin === item.id : activeBg === item.id;
-
-    if(active){
-      item.btn.textContent = "Equipped";
-      item.btn.disabled = true;
-    } else if(unlocked){
-      item.btn.textContent = "Equip";
-      item.btn.disabled = false;
-      item.btn.onclick = () => {
-        if(isSkin) activeSkin = item.id;
-        else activeBg = item.id;
-        localStorage.setItem(isSkin ? "flappy_active_skin" : "flappy_active_bg", item.id);
-        updateShopUI();
-        draw();
-      };
-    } else {
-      item.btn.textContent = `Buy (${item.cost})`;
-      item.btn.disabled = false;
-      item.btn.onclick = () => {
-        if(totalCoins >= item.cost){
-          totalCoins -= item.cost;
-          localStorage.setItem("flappy_coins", totalCoins);
-          if(isSkin) unlockedSkins.push(item.id);
-          else unlockedBgs.push(item.id);
-          localStorage.setItem(isSkin ? "flappy_unlocked_skins" : "flappy_unlocked_bgs", JSON.stringify(isSkin ? unlockedSkins : unlockedBgs));
-          updateShopUI();
-          updateStatsDisplay();
-        } else {
-          document.getElementById("status").textContent = "⚠️ Not enough coins for this item!";
-        }
-      };
-    }
-  });
-}
-
-c.addEventListener("pointerdown",flap);
-document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
-resetGame(false);
-draw();
-</script>
-</body>
-</html>
+    { type: 'skin', id: 'phoenix', cost: 750, btn: document.getElementById(
