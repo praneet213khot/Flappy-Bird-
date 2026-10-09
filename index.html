@@ -31,9 +31,9 @@ button {
 }
 button:active { transform: scale(0.95); }
 #start { background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; }
-#pauseBtn { background: rgba(255, 255, 255, 0.2); color: #fff; }
-#restartBtn { background: linear-gradient(135deg, #f44336, #c62828); color: #fff; }
-#scoreBtn { background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; }
+#restartBtn { background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; }
+#resetGameBtn { background: linear-gradient(135deg, #f44336, #c62828); color: #fff; }
+#scoreBtn { background: linear-gradient(135deg, #2196f3, #1976d2); color: #fff; }
 #shopBtn { background: linear-gradient(135deg, #9c27b0, #673ab7); color: #fff; }
 #status { min-height: 22px; color: #ffd54a; font-weight: 600; font-size: 14px; }
 .statsBar {
@@ -74,9 +74,9 @@ canvas {
   <h1>🐦 Flappy Score Challenge</h1>
   <div class="controls">
     <input id="name" maxlength="16" placeholder="Player name (Required)">
-    <button id="start">START</button>
-    <button id="pauseBtn">⏸️</button>
+    <button id="start">▶ START</button>
     <button id="restartBtn">🔄 RESTART</button>
+    <button id="resetGameBtn">⚠️ RESET GAME</button>
     <button id="shopBtn">🛒 SHOP</button>
     <button id="scoreBtn">🏆 SCORES</button>
   </div>
@@ -189,7 +189,7 @@ function formatTime(seconds){
 }
 
 setInterval(() => {
-  if (running && !isPaused) {
+  if (running) {
     totalPlayTime++;
     localStorage.setItem("flappy_playtime", totalPlayTime);
     updateStatsDisplay();
@@ -242,13 +242,12 @@ function escapeHtml(s){
 
 const c=document.getElementById("game"), ctx=c.getContext("2d");
 const W=c.width,H=c.height;
-let player={x:125, y:H/2, vy:0, r:18}, pipes=[], score=0, running=false, isPaused=false, last=0, spawnTimer=0, name="";
+let player={x:125, y:H/2, vy:0, r:18}, pipes=[], score=0, running=false, last=0, spawnTimer=0, name="";
 
 function resetGame(hardReset = false){
   player = {x:125, y:H/2, vy:0, r:18};
   pipes = []; 
   spawnTimer = 0;
-  isPaused = false;
   
   if (hardReset) {
     score = 0;
@@ -343,14 +342,14 @@ function draw(){
   } catch(e) {}
 }
 
-function flap(){ if(running && !isPaused) player.vy=-6.4; }
+function flap(){ if(running) player.vy=-6.4; }
 
 function gameOver(){
   if(!running)return;
   running=false;
   
   if (checkpointScore > 0) {
-    document.getElementById("status").textContent = `Game Over! Resuming at Checkpoint ${checkpointScore}`;
+    document.getElementById("status").textContent = `Game Over! Restarting will keep your Checkpoint at ${checkpointScore}`;
   } else {
     document.getElementById("status").textContent = `Game over! ${name}: ${score}`;
   }
@@ -409,30 +408,15 @@ function startGame(hardReset = false){
     else{
       clearInterval(t); running=true;
       document.getElementById("status").textContent = checkpointScore > 0 
-        ? `Resuming ${name} at Checkpoint ${checkpointScore}` 
+        ? `Playing as ${name} (Checkpoint Position: ${checkpointScore})` 
         : `Playing as ${name}`;
       last=performance.now();requestAnimationFrame(loop);
     }
   },1000);
 }
 
-function togglePause(){
-  if(!running) return;
-  isPaused = !isPaused;
-  const pauseBtn = document.getElementById("pauseBtn");
-  if(isPaused){
-    if(pauseBtn) pauseBtn.textContent = "▶️";
-    document.getElementById("status").textContent = "⏸️ PAUSED";
-  } else {
-    if(pauseBtn) pauseBtn.textContent = "⏸️";
-    document.getElementById("status").textContent = `Playing as ${name}`;
-    last = performance.now();
-    requestAnimationFrame(loop);
-  }
-}
-
 function loop(now){
-  if(!running || isPaused)return;
+  if(!running)return;
   const d=Math.min(2,(now-last)/16.67);last=now;
   const speed=currentSpeed();
   
@@ -481,8 +465,11 @@ function loop(now){
 }
 
 document.getElementById("start").onclick = () => startGame(false);
-document.getElementById("restartBtn").onclick = () => startGame(true);
-document.getElementById("pauseBtn").onclick = togglePause;
+document.getElementById("restartBtn").onclick = () => startGame(false);
+document.getElementById("resetGameBtn").onclick = () => {
+  document.getElementById("status").textContent = "🔄 Game reset back to Score 0!";
+  startGame(true);
+};
 
 const scoreModal=document.getElementById("scoreModal");
 document.getElementById("scoreBtn").onclick=()=>{ if(scoreModal) scoreModal.style.display="flex"; };
