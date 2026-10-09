@@ -20,19 +20,20 @@ h1 {
 }
 .controls { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; }
 #name {
-  flex: 1; min-width: 140px; padding: 10px 14px; border-radius: 12px;
+  flex: 1; min-width: 130px; padding: 10px 14px; border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.15); background: rgba(255, 255, 255, 0.07);
   color: #fff; font-size: 15px; outline: none;
 }
 button {
-  padding: 10px 14px; border: none; border-radius: 12px;
-  font-weight: 700; font-size: 14px; cursor: pointer;
+  padding: 10px 12px; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
   transition: transform 0.1s ease;
 }
 button:active { transform: scale(0.95); }
 #start { background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; }
 #restartBtn { background: linear-gradient(135deg, #f44336, #c62828); color: #fff; }
 #scoreBtn { background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; }
+#shopBtn { background: linear-gradient(135deg, #9c27b0, #673ab7); color: #fff; }
 #status { min-height: 22px; color: #ffd54a; font-weight: 600; font-size: 14px; }
 .statsBar {
   display: flex; justify-content: space-around; font-size: 13px; font-weight: 700; color: #8ed8ff;
@@ -55,25 +56,32 @@ canvas {
   z-index: 20; align-items: center; justify-content: center; padding: 20px;
 }
 .modalBox {
-  position: relative; width: min(460px, 94vw); max-height: 80vh; overflow: auto;
+  position: relative; width: min(480px, 94vw); max-height: 80vh; overflow: auto;
   background: #141a26; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 20px;
 }
 .close { position: absolute; right: 12px; top: 12px; background: rgba(255, 255, 255, 0.1); color: #fff; padding: 6px 12px; border-radius: 10px; }
 .modalRow { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 14px; }
+.shopSection { margin-bottom: 18px; text-align: left; }
+.shopSection h3 { margin: 0 0 8px; color: #ffd54a; font-size: 15px; }
+.shopGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.shopCard { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px; text-align: center; }
+.shopCard button { margin-top: 6px; width: 100%; padding: 6px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🐦 Flappy Score Challenge</h1>
   <div class="controls">
-    <input id="name" maxlength="16" placeholder="Enter player name (Required)">
+    <input id="name" maxlength="16" placeholder="Player name (Required)">
     <button id="start">START</button>
     <button id="restartBtn">🔄 RESTART</button>
+    <button id="shopBtn">🛒 SHOP</button>
     <button id="scoreBtn">🏆 SCORES</button>
   </div>
   <div class="statsBar">
     <span>⏱️ PLAYTIME: <span id="playtime">0m 0s</span></span>
     <span>🪙 COINS: <span id="coins">0</span></span>
+    <span>⚡ MULTI: <span id="multi">1.0x</span></span>
   </div>
   <div id="status">Enter your name and press START</div>
 
@@ -82,7 +90,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">Checkpoints give bonus score • Permanent Coins • Name required</div>
+    <div class="small">1.2x Coins after Score 50 • Permanent Coins & Items • Name required</div>
   </div>
 </div>
 
@@ -95,8 +103,56 @@ canvas {
   </div>
 </div>
 
+<div id="shopModal" class="modal">
+  <div class="modalBox">
+    <button id="closeShop" class="close">✕</button>
+    <h2>🛒 SKINS & THEMES SHOP</h2>
+    
+    <div class="shopSection">
+      <h3>🐦 Bird Skins</h3>
+      <div class="shopGrid">
+        <div class="shopCard">
+          <div><b>Classic Bird</b></div>
+          <div class="small">Default</div>
+          <button id="skin_classic">Equipped</button>
+        </div>
+        <div class="shopCard">
+          <div><b>Golden Bird</b></div>
+          <div class="small">🪙 100 Coins</div>
+          <button id="skin_golden">Buy</button>
+        </div>
+        <div class="shopCard">
+          <div><b>Cyber Bird</b></div>
+          <div class="small">🪙 250 Coins</div>
+          <button id="skin_cyber">Buy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="shopSection">
+      <h3>🌄 Backgrounds</h3>
+      <div class="shopGrid">
+        <div class="shopCard">
+          <div><b>Classic Sky</b></div>
+          <div class="small">Default</div>
+          <button id="bg_classic">Equipped</button>
+        </div>
+        <div class="shopCard">
+          <div><b>Night Mode</b></div>
+          <div class="small">🪙 150 Coins</div>
+          <button id="bg_night">Buy</button>
+        </div>
+        <div class="shopCard">
+          <div><b>Sunset Sky</b></div>
+          <div class="small">🪙 300 Coins</div>
+          <button id="bg_sunset">Buy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-// Version 1.0.1 - Cache Update Fix
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, onSnapshot,
@@ -124,16 +180,22 @@ if(!playerId){
 
 let checkpointScore = parseInt(localStorage.getItem("flappy_checkpoint")) || 0;
 let totalPlayTime = parseInt(localStorage.getItem("flappy_playtime")) || 0;
-let totalCoins = parseInt(localStorage.getItem("flappy_coins")) || 0;
+let totalCoins = parseFloat(localStorage.getItem("flappy_coins")) || 0;
+
+let unlockedSkins = JSON.parse(localStorage.getItem("flappy_unlocked_skins")) || ["classic"];
+let unlockedBgs = JSON.parse(localStorage.getItem("flappy_unlocked_bgs")) || ["classic"];
+let activeSkin = localStorage.getItem("flappy_active_skin") || "classic";
+let activeBg = localStorage.getItem("flappy_active_bg") || "classic";
 
 const playtimeElem = document.getElementById("playtime");
 const coinsElem = document.getElementById("coins");
+const multiElem = document.getElementById("multi");
 
 function updateStatsDisplay(){
   const mins = Math.floor(totalPlayTime / 60);
   const secs = totalPlayTime % 60;
   playtimeElem.textContent = `${mins}m ${secs}s`;
-  coinsElem.textContent = totalCoins;
+  coinsElem.textContent = Math.floor(totalCoins);
 }
 updateStatsDisplay();
 
@@ -172,7 +234,7 @@ onSnapshot(scoreQuery, snap => {
     const x = d.data();
     return `<div class="row">
       <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Number(x.totalCoins)||0} | ⏱️ ${formatTime(x.playtime)}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
     </div>`;
   }).join("");
 
@@ -180,7 +242,7 @@ onSnapshot(scoreQuery, snap => {
     const x = d.data();
     return `<div class="modalRow">
       <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Number(x.totalCoins)||0} | ⏱️ ${formatTime(x.playtime)}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
     </div>`;
   }).join("");
 
@@ -227,8 +289,17 @@ function currentSpeed(){
 
 function draw(){
   ctx.clearRect(0,0,W,H);
-  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#7bd6ff");g.addColorStop(1,"#d8f6ff");
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  
+  // Background Themes
+  let g = ctx.createLinearGradient(0,0,0,H);
+  if(activeBg === "night"){
+    g.addColorStop(0,"#0d1b2a"); g.addColorStop(1,"#1b263b");
+  } else if(activeBg === "sunset"){
+    g.addColorStop(0,"#ff7e5f"); g.addColorStop(1,"#feb47b");
+  } else {
+    g.addColorStop(0,"#7bd6ff"); g.addColorStop(1,"#d8f6ff");
+  }
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
   ctx.fillStyle="rgba(255,255,255,.8)";
   [[80,80,35],[110,75,28],[400,120,40],[430,112,25]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()});
@@ -255,8 +326,17 @@ function draw(){
 
   ctx.fillStyle="#72b84b";ctx.fillRect(0,H-20,W,20);
   ctx.fillStyle="#d4b34c";ctx.fillRect(0,H-8,W,8);
+
+  // Bird Skins
   const birdGrad=ctx.createRadialGradient(player.x-5,player.y-7,3,player.x,player.y,22);
-  birdGrad.addColorStop(0,"#fff58a");birdGrad.addColorStop(1,"#ffb900");
+  if(activeSkin === "golden"){
+    birdGrad.addColorStop(0,"#ffffff"); birdGrad.addColorStop(1,"#ffd700");
+  } else if(activeSkin === "cyber"){
+    birdGrad.addColorStop(0,"#00ffff"); birdGrad.addColorStop(1,"#ff00ff");
+  } else {
+    birdGrad.addColorStop(0,"#fff58a"); birdGrad.addColorStop(1,"#ffb900");
+  }
+
   ctx.fillStyle=birdGrad;ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="#f08a00";ctx.beginPath();ctx.ellipse(player.x-5,player.y+7,11,6,-.25,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(player.x+7,player.y-6,6,0,Math.PI*2);ctx.fill();
@@ -299,7 +379,7 @@ async function saveScore(){
     await setDoc(playerRef, {
       name: name.slice(0, 16),
       score: Number(newBestScore),
-      totalCoins: Number(totalCoins),
+      totalCoins: Math.floor(totalCoins),
       playtime: Number(totalPlayTime),
       createdAt: serverTimestamp()
     }, { merge: true });
@@ -351,6 +431,10 @@ function loop(now){
   spawnTimer+=16.67*d;
   const interval=score<20?1850:Math.max(850,1600-score*3.2);
   if(pipes.length===0 || spawnTimer>interval){addPipe();spawnTimer=0;}
+
+  // 1.2x Multiplier logic after score 50
+  const coinMultiplier = score >= 50 ? 1.2 : 1.0;
+  multiElem.textContent = `${coinMultiplier.toFixed(1)}x`;
   
   pipes.forEach(p=>{
     p.x-=speed*d;
@@ -358,52 +442,9 @@ function loop(now){
       p.passed=true;
       score++;
       
-      totalCoins++;
+      totalCoins += (1 * coinMultiplier);
       localStorage.setItem("flappy_coins", totalCoins);
       updateStatsDisplay();
 
       if(score > 0 && score % 50 === 0 && score > checkpointScore){
-        checkpointScore = score;
-        localStorage.setItem("flappy_checkpoint", checkpointScore);
-        
-        const bonus = Math.floor(Math.random() * 11) + 5;
-        score += bonus;
-        totalCoins += bonus;
-        localStorage.setItem("flappy_coins", totalCoins);
-        updateStatsDisplay();
-
-        document.getElementById("status").textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${bonus} BONUS POINTS & COINS!`;
-      }
-    }
-  });
-  
-  pipes=pipes.filter(p=>p.x+p.w>-20);
-  if(player.y-player.r<0||player.y+player.r>H)gameOver();
-  for(const p of pipes){
-    const hitX=player.x+player.r>p.x&&player.x-player.r<p.x+p.w;
-    const hitY=player.y-player.r<p.top||player.y+player.r>p.top+p.gap;
-    if(hitX&&hitY){gameOver();break;}
-  }
-  draw();requestAnimationFrame(loop);
-}
-
-document.getElementById("start").onclick = () => startGame(false);
-document.getElementById("restartBtn").onclick = () => startGame(true);
-
-const scoreModal=document.getElementById("scoreModal");
-document.getElementById("scoreBtn").onclick=()=>{
-  scoreModal.style.display="flex";
-};
-document.getElementById("closeScores").onclick=()=>{
-  scoreModal.style.display="none";
-};
-scoreModal.addEventListener("click",e=>{
-  if(e.target===scoreModal) scoreModal.style.display="none";
-});
-
-c.addEventListener("pointerdown",flap);
-document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
-resetGame(false);draw();
-</script>
-</body>
-</html>
+                                      
