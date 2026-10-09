@@ -92,7 +92,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">1.2x Coins after Score 50 • Dynamic Pipe Spacing • Name required</div>
+    <div class="small">1.2x Coins after Score 50 • Smoothed High-Speed Control • Name required</div>
   </div>
 </div>
 
@@ -136,7 +136,6 @@ canvas {
 </div>
 
 <script type="module">
-// Version 2.0.0 - Stability Guard
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, onSnapshot,
@@ -153,13 +152,8 @@ const firebaseConfig = {
   measurementId: "G-1MRK38DQPN"
 };
 
-let app, db;
-try {
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-} catch(e) {
-  console.error("Firebase init fallback:", e);
-}
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 let playerId = localStorage.getItem("flappy_player_id");
 if(!playerId){
@@ -210,50 +204,44 @@ if(savedName && nameInput){
 
 const board = document.getElementById("scores");
 const gameScores = document.getElementById("gameScores");
+const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
 
-if(db) {
-  try {
-    const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
-    onSnapshot(scoreQuery, snap => {
-      if (snap.empty) {
-        if(board) board.innerHTML = "<div>No scores yet — be the first!</div>";
-        if(gameScores) gameScores.innerHTML = "<div>No scores yet — be the first!</div>";
-        return;
-      }
-      
-      const listHtml = snap.docs.map((d, i) => {
-        const x = d.data();
-        return `<div class="row">
-          <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-          <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
-        </div>`;
-      }).join("");
-
-      const modalHtml = snap.docs.map((d, i) => {
-        const x = d.data();
-        return `<div class="modalRow">
-          <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
-          <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
-        </div>`;
-      }).join("");
-
-      if(board) board.innerHTML = listHtml;
-      if(gameScores) gameScores.innerHTML = modalHtml;
-    }, err => {
-      if(board) board.innerHTML = "<div>Leaderboard offline.</div>";
-      if(gameScores) gameScores.innerHTML = "<div>Leaderboard offline.</div>";
-    });
-  } catch(e) {
-    console.error("Firestore error:", e);
+onSnapshot(scoreQuery, snap => {
+  if (snap.empty) {
+    if(board) board.innerHTML = "<div>No scores yet — be the first!</div>";
+    if(gameScores) gameScores.innerHTML = "<div>No scores yet — be the first!</div>";
+    return;
   }
-}
+  
+  const listHtml = snap.docs.map((d, i) => {
+    const x = d.data();
+    return `<div class="row">
+      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
+    </div>`;
+  }).join("");
+
+  const modalHtml = snap.docs.map((d, i) => {
+    const x = d.data();
+    return `<div class="modalRow">
+      <span>${i+1}. ${escapeHtml(x.name || "Player")}</span>
+      <span>🏆 <b>${Number(x.score)||0}</b> | 🪙 ${Math.floor(x.totalCoins || 0)} | ⏱️ ${formatTime(x.playtime)}</span>
+    </div>`;
+  }).join("");
+
+  if(board) board.innerHTML = listHtml;
+  if(gameScores) gameScores.innerHTML = modalHtml;
+}, err => {
+  if(board) board.innerHTML = "<div>Leaderboard unavailable.</div>";
+  if(gameScores) gameScores.innerHTML = "<div>Leaderboard unavailable.</div>";
+});
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
 
-const c=document.getElementById("game"), ctx=c ? c.getContext("2d") : null;
-const W=c ? c.width : 540, H=c ? c.height : 640;
+const c=document.getElementById("game"), ctx=c.getContext("2d");
+const W=c.width,H=c.height;
 let player={x:125, y:H/2, vy:0, r:18}, pipes=[], score=0, running=false, last=0, spawnTimer=0, name="";
 
 function resetGame(hardReset = false){
@@ -272,6 +260,7 @@ function resetGame(hardReset = false){
 
 function addPipe(){
   const early = score < 20;
+  // Increase gap slightly at high speeds to give the player a fair window
   const minGap = Math.max(195, 285 - score * 0.22);
   const gap = early ? 285 : minGap;
   const margin = 105;
@@ -280,11 +269,11 @@ function addPipe(){
 }
 
 function currentSpeed(){
+  // Caps forward pipe speed at a maximum of 5.5 so it remains playable
   return 2.8 + Math.min(2.7, score * 0.025);
 }
 
 function draw(){
-  if(!ctx) return;
   try {
     ctx.clearRect(0,0,W,H);
     
@@ -358,6 +347,7 @@ function draw(){
 
 function flap(){ 
   if(running) {
+    // Smoother flap velocity impulse
     player.vy = -5.8; 
   } 
 }
@@ -366,20 +356,16 @@ function gameOver(){
   if(!running)return;
   running=false;
   
-  const statusElem = document.getElementById("status");
-  if(statusElem) {
-    if (checkpointScore > 0) {
-      statusElem.textContent = `Game Over! Restarting will keep your Checkpoint at ${checkpointScore}`;
-    } else {
-      statusElem.textContent = `Game over! ${name}: ${score}`;
-    }
+  if (checkpointScore > 0) {
+    document.getElementById("status").textContent = `Game Over! Restarting will keep your Checkpoint at ${checkpointScore}`;
+  } else {
+    document.getElementById("status").textContent = `Game over! ${name}: ${score}`;
   }
   
   saveScore();
 }
 
 async function saveScore(){
-  if(!db) return;
   try{
     const playerRef = doc(db, "scores", playerId);
     const docSnap = await getDoc(playerRef);
@@ -399,9 +385,8 @@ async function saveScore(){
       createdAt: serverTimestamp()
     }, { merge: true });
 
-    const statusElem = document.getElementById("status");
-    if(score > previousBest && score > 0 && statusElem){
-      statusElem.textContent = `🎉 NEW HIGH SCORE! ${name}: ${score}`;
+    if(score > previousBest && score > 0){
+      document.getElementById("status").textContent = `🎉 NEW HIGH SCORE! ${name}: ${score}`;
     }
   }catch(e){
     console.error(e);
@@ -411,10 +396,9 @@ async function saveScore(){
 function startGame(hardReset = false){
   const nameInput = document.getElementById("name");
   const enteredName = nameInput ? nameInput.value.trim() : "";
-  const statusElem = document.getElementById("status");
 
   if(!enteredName){
-    if(statusElem) statusElem.textContent = "⚠️ Please enter your name before playing!";
+    document.getElementById("status").textContent = "⚠️ Please enter your name before playing!";
     if(nameInput) nameInput.focus();
     return;
   }
@@ -425,19 +409,15 @@ function startGame(hardReset = false){
   resetGame(hardReset); 
   running=false;
   
-  let n=3; 
-  if(statusElem) statusElem.textContent=`Starting in ${n}...`;
+  let n=3; document.getElementById("status").textContent=`Starting in ${n}...`;
   const t=setInterval(()=>{
     n--;
-    if(n>0) {
-      if(statusElem) statusElem.textContent=`Starting in ${n}...`;
-    } else {
+    if(n>0) document.getElementById("status").textContent=`Starting in ${n}...`;
+    else{
       clearInterval(t); running=true;
-      if(statusElem) {
-        statusElem.textContent = checkpointScore > 0 
-          ? `Playing as ${name} (Checkpoint Position: ${checkpointScore})` 
-          : `Playing as ${name}`;
-      }
+      document.getElementById("status").textContent = checkpointScore > 0 
+        ? `Playing as ${name} (Checkpoint Position: ${checkpointScore})` 
+        : `Playing as ${name}`;
       last=performance.now();requestAnimationFrame(loop);
     }
   },1000);
@@ -448,13 +428,13 @@ function loop(now){
   const d=Math.min(2,(now-last)/16.67);last=now;
   const speed=currentSpeed();
   
+  // Smooth physics: capped falling velocity and soft gravity curve
   player.vy += 0.21 * d;
-  player.vy = Math.min(player.vy, 7.5);
+  player.vy = Math.min(player.vy, 7.5); // Terminal velocity cap
   player.y += player.vy * d;
 
   spawnTimer += 16.67 * d;
-  
-  const interval = score < 20 ? 1850 : Math.min(2600, 1600 + score * 8.5);
+  const interval = score < 20 ? 1850 : Math.max(900, 1600 - score * 2.8);
   if(pipes.length === 0 || spawnTimer > interval){ addPipe(); spawnTimer = 0; }
 
   const coinMultiplier = score >= 50 ? 1.2 : 1.0;
@@ -481,8 +461,7 @@ function loop(now){
         localStorage.setItem("flappy_coins", totalCoins);
         updateStatsDisplay();
 
-        const statusElem = document.getElementById("status");
-        if(statusElem) statusElem.textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${finalBonus} BONUS COINS (${coinMultiplier}x)!`;
+        document.getElementById("status").textContent = `🎯 CHECKPOINT ${checkpointScore} CLEARED! +${finalBonus} BONUS COINS (${coinMultiplier}x)!`;
       }
     }
   });
@@ -497,29 +476,20 @@ function loop(now){
   draw();requestAnimationFrame(loop);
 }
 
-const startBtn = document.getElementById("start");
-const restartBtn = document.getElementById("restartBtn");
-const resetBtn = document.getElementById("resetGameBtn");
-
-if(startBtn) startBtn.onclick = () => startGame(false);
-if(restartBtn) restartBtn.onclick = () => startGame(false);
-if(resetBtn) resetBtn.onclick = () => {
-  const statusElem = document.getElementById("status");
-  if(statusElem) statusElem.textContent = "🔄 Game reset back to Score 0!";
+document.getElementById("start").onclick = () => startGame(false);
+document.getElementById("restartBtn").onclick = () => startGame(false);
+document.getElementById("resetGameBtn").onclick = () => {
+  document.getElementById("status").textContent = "🔄 Game reset back to Score 0!";
   startGame(true);
 };
 
 const scoreModal=document.getElementById("scoreModal");
-const scoreBtn=document.getElementById("scoreBtn");
-const closeScores=document.getElementById("closeScores");
-if(scoreBtn) scoreBtn.onclick=()=>{ if(scoreModal) scoreModal.style.display="flex"; };
-if(closeScores) closeScores.onclick=()=>{ if(scoreModal) scoreModal.style.display="none"; };
+document.getElementById("scoreBtn").onclick=()=>{ if(scoreModal) scoreModal.style.display="flex"; };
+document.getElementById("closeScores").onclick=()=>{ if(scoreModal) scoreModal.style.display="none"; };
 
 const shopModal=document.getElementById("shopModal");
-const shopBtn=document.getElementById("shopBtn");
-const closeShop=document.getElementById("closeShop");
-if(shopBtn) shopBtn.onclick=()=>{ updateShopUI(); if(shopModal) shopModal.style.display="flex"; };
-if(closeShop) closeShop.onclick=()=>{ if(shopModal) shopModal.style.display="none"; };
+document.getElementById("shopBtn").onclick=()=>{ updateShopUI(); if(shopModal) shopModal.style.display="flex"; };
+document.getElementById("closeShop").onclick=()=>{ if(shopModal) shopModal.style.display="none"; };
 
 function updateShopUI(){
   const items = [
@@ -568,19 +538,15 @@ function updateShopUI(){
           updateShopUI();
           updateStatsDisplay();
         } else {
-          const statusElem = document.getElementById("status");
-          if(statusElem) statusElem.textContent = "⚠️ Not enough coins for this item!";
+          document.getElementById("status").textContent = "⚠️ Not enough coins for this item!";
         }
       };
     }
   });
 }
 
-if(c) {
-  c.addEventListener("pointerdown", flap);
-}
-document.addEventListener("keydown", e => { if(e.code === "Space"){ e.preventDefault(); flap(); } });
-
+c.addEventListener("pointerdown",flap);
+document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
 resetGame(false);
 draw();
 </script>
