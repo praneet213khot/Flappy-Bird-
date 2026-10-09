@@ -357,17 +357,15 @@ function loop(now){
       p.passed=true;
       score++;
       
-      // Earn 1 Coin for every point cleared
       totalCoins++;
       localStorage.setItem("flappy_coins", totalCoins);
       updateStatsDisplay();
 
-      // Grant random bonus score + coins when crossing a 50-point checkpoint
       if(score > 0 && score % 50 === 0 && score > checkpointScore){
         checkpointScore = score;
         localStorage.setItem("flappy_checkpoint", checkpointScore);
         
-        const bonus = Math.floor(Math.random() * 11) + 5; // Random bonus between 5 and 15
+        const bonus = Math.floor(Math.random() * 11) + 5;
         score += bonus;
         totalCoins += bonus;
         localStorage.setItem("flappy_coins", totalCoins);
@@ -378,4 +376,5 @@ function loop(now){
     }
   });
   
-  pipes=pipes.filter(p
+  pipes=pipes.filter(p=>p.x+p.w>-20);
+  if(player.y-player.r
