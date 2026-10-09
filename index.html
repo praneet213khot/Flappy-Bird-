@@ -70,7 +70,7 @@ canvas {
   <div class="board">
     <h2>🏆 LIVE TOP 10 LEADERBOARD</h2>
     <div id="scores">Loading...</div>
-    <div class="small">Tap screen / press SPACE to jump • Scores update live on high score</div>
+    <div class="small">Checkpoint saved every 50 points • Death restores your checkpoint</div>
   </div>
 </div>
 
@@ -103,7 +103,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Unique player document ID per phone/browser
 let playerId = localStorage.getItem("flappy_player_id");
 if(!playerId){
   playerId = "player_" + Math.random().toString(36).substring(2, 11);
@@ -120,7 +119,6 @@ const board = document.getElementById("scores");
 const gameScores = document.getElementById("gameScores");
 const scoreQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
 
-// Single live subscription for both leaderboards
 onSnapshot(scoreQuery, snap => {
   if (snap.empty) {
     board.innerHTML = "<div>No scores yet — be the first!</div>";
@@ -153,12 +151,25 @@ function escapeHtml(s){
 const c=document.getElementById("game"), ctx=c.getContext("2d");
 const W=c.width,H=c.height;
 let player, pipes=[], score=0, running=false, countdown=false, last=0, spawnTimer=0, name="";
-let bestCheckpoint=0;
 
-function reset(){
-  player={x:125,y:H/2,vy:0,r:18};
-  pipes=[]; score=0; spawnTimer=0; bestCheckpoint=0;
+// Checkpoint state
+let checkpointScore = 0;
+let checkpointSpeed = 2.8;
+
+function reset(useCheckpoint = false){
+  player = {x:125, y:H/2, vy:0, r:18};
+  pipes = []; 
+  spawnTimer = 0;
+
+  if (useCheckpoint) {
+    score = checkpointScore;
+  } else {
+    score = 0;
+    checkpointScore = 0;
+    checkpointSpeed = 2.8;
+  }
 }
+
 function addPipe(){
   const early = score < 20;
   const gap = early ? 285 : Math.max(190, 285 - score * 0.30);
@@ -166,9 +177,11 @@ function addPipe(){
   const center = margin + Math.random() * (H - margin * 2);
   pipes.push({x:W+100,w:78,gap,top:center-gap/2,passed:false});
 }
-function speedLabel(){
-  return (2.8+Math.min(3.2,score*0.035)).toFixed(1);
+
+function currentSpeed(){
+  return 2.8 + Math.min(3.2, score * 0.035);
 }
+
 function draw(){
   ctx.clearRect(0,0,W,H);
   const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#7bd6ff");g.addColorStop(1,"#d8f6ff");
@@ -210,14 +223,21 @@ function draw(){
   ctx.fillStyle="#fff";ctx.strokeStyle="#000";ctx.lineWidth=4;ctx.font="bold 42px Arial";ctx.textAlign="center";
   ctx.strokeText(score,W/2,58);ctx.fillText(score,W/2,58);
   ctx.font="bold 14px Arial";ctx.fillStyle="rgba(0,0,0,.45)";
-  ctx.fillText(`SPEED ${speedLabel()}`,W/2,82);
+  ctx.fillText(`SPEED ${currentSpeed().toFixed(1)}`,W/2,82);
 }
+
 function flap(){ if(running) player.vy=-6.4; }
 
 function gameOver(){
   if(!running)return;
   running=false;
-  document.getElementById("status").textContent=`Game over! ${name}: ${score}`;
+  
+  if (checkpointScore > 0) {
+    document.getElementById("status").textContent = `Game Over! Restarting at Checkpoint ${checkpointScore}`;
+  } else {
+    document.getElementById("status").textContent = `Game over! ${name}: ${score}`;
+  }
+  
   saveScore();
 }
 
@@ -227,7 +247,6 @@ async function saveScore(){
     const playerRef = doc(db, "scores", playerId);
     const docSnap = await getDoc(playerRef);
 
-    // Save/update score if document doesn't exist OR if new score beats personal record
     if(!docSnap.exists() || score > docSnap.data().score){
       await setDoc(playerRef, {
         name: name.slice(0, 16),
@@ -238,7 +257,6 @@ async function saveScore(){
     }
   }catch(e){
     console.error(e);
-    document.getElementById("status").textContent = `Score: ${score} (saving failed - check Firebase rules)`;
   }
 }
 
@@ -247,14 +265,19 @@ function start(){
   name = (nameInput.value.trim() || "Player").slice(0,16);
   localStorage.setItem("flappy_player_name", name);
   
-  reset(); countdown=true; running=false;
+  // Use last saved checkpoint if available
+  reset(checkpointScore > 0); 
+  countdown=true; running=false;
+  
   let n=3; document.getElementById("status").textContent=`Starting in ${n}...`;
   const t=setInterval(()=>{
     n--;
     if(n>0) document.getElementById("status").textContent=`Starting in ${n}...`;
     else{
       clearInterval(t); countdown=false;running=true;
-      document.getElementById("status").textContent=`Playing as ${name}`;
+      document.getElementById("status").textContent = checkpointScore > 0 
+        ? `Resuming ${name} at Checkpoint ${checkpointScore}` 
+        : `Playing as ${name}`;
       last=performance.now();requestAnimationFrame(loop);
     }
   },1000);
@@ -263,21 +286,27 @@ function start(){
 function loop(now){
   if(!running)return;
   const d=Math.min(2,(now-last)/16.67);last=now;
-  const speed=2.8+Math.min(3.2,score*0.035);
+  const speed=currentSpeed();
+  
   player.vy+=0.23*d;player.y+=player.vy*d;
   spawnTimer+=16.67*d;
   const interval=score<20?1850:Math.max(850,1600-score*3.2);
   if(pipes.length===0 || spawnTimer>interval){addPipe();spawnTimer=0;}
+  
   pipes.forEach(p=>{
     p.x-=speed*d;
     if(!p.passed && p.x+p.w<player.x){
       p.passed=true;score++;
-      if(score%50===0 && score!==bestCheckpoint){
-        bestCheckpoint=score;
-        document.getElementById("status").textContent=`🎯 CHECKPOINT ${score}!`;
+      
+      // Save checkpoint every 50 points
+      if(score > 0 && score % 50 === 0 && score !== checkpointScore){
+        checkpointScore = score;
+        checkpointSpeed = speed;
+        document.getElementById("status").textContent = `🎯 CHECKPOINT ${score} SAVED!`;
       }
     }
   });
+  
   pipes=pipes.filter(p=>p.x+p.w>-20);
   if(player.y-player.r<0||player.y+player.r>H)gameOver();
   for(const p of pipes){
@@ -305,5 +334,5 @@ document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();
 reset();draw();
 </script>
 </body>
-    </html>
+  </html>
   
