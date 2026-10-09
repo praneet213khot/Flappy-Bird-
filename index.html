@@ -96,6 +96,7 @@ canvas {
 </div>
 
 <script type="module">
+// Version 1.0.1 - Cache Update Fix
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, onSnapshot,
@@ -377,4 +378,32 @@ function loop(now){
   });
   
   pipes=pipes.filter(p=>p.x+p.w>-20);
-  if(player.y-player.r
+  if(player.y-player.r<0||player.y+player.r>H)gameOver();
+  for(const p of pipes){
+    const hitX=player.x+player.r>p.x&&player.x-player.r<p.x+p.w;
+    const hitY=player.y-player.r<p.top||player.y+player.r>p.top+p.gap;
+    if(hitX&&hitY){gameOver();break;}
+  }
+  draw();requestAnimationFrame(loop);
+}
+
+document.getElementById("start").onclick = () => startGame(false);
+document.getElementById("restartBtn").onclick = () => startGame(true);
+
+const scoreModal=document.getElementById("scoreModal");
+document.getElementById("scoreBtn").onclick=()=>{
+  scoreModal.style.display="flex";
+};
+document.getElementById("closeScores").onclick=()=>{
+  scoreModal.style.display="none";
+};
+scoreModal.addEventListener("click",e=>{
+  if(e.target===scoreModal) scoreModal.style.display="none";
+});
+
+c.addEventListener("pointerdown",flap);
+document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
+resetGame(false);draw();
+</script>
+</body>
+</html>
