@@ -496,4 +496,60 @@ function updateShopUI(){
   const items = [
     { type: 'skin', id: 'classic', cost: 0, btn: document.getElementById("skin_classic") },
     { type: 'skin', id: 'golden', cost: 100, btn: document.getElementById("skin_golden") },
-    { type: '
+    { type: 'skin', id: 'cyber', cost: 250, btn: document.getElementById("skin_cyber") },
+    { type: 'skin', id: 'phoenix', cost: 750, btn: document.getElementById("skin_phoenix") },
+    { type: 'skin', id: 'void', cost: 1500, btn: document.getElementById("skin_void") },
+    { type: 'skin', id: 'royal', cost: 3000, btn: document.getElementById("skin_royal") },
+    { type: 'bg', id: 'classic', cost: 0, btn: document.getElementById("bg_classic") },
+    { type: 'bg', id: 'night', cost: 150, btn: document.getElementById("bg_night") },
+    { type: 'bg', id: 'sunset', cost: 300, btn: document.getElementById("bg_sunset") },
+    { type: 'bg', id: 'space', cost: 800, btn: document.getElementById("bg_space") },
+    { type: 'bg', id: 'cyber', cost: 2000, btn: document.getElementById("bg_cyber") }
+  ];
+
+  items.forEach(item => {
+    if(!item.btn) return;
+    const isSkin = item.type === 'skin';
+    const unlocked = isSkin ? unlockedSkins.includes(item.id) : unlockedBgs.includes(item.id);
+    const active = isSkin ? activeSkin === item.id : activeBg === item.id;
+
+    if(active){
+      item.btn.textContent = "Equipped";
+      item.btn.disabled = true;
+    } else if(unlocked){
+      item.btn.textContent = "Equip";
+      item.btn.disabled = false;
+      item.btn.onclick = () => {
+        if(isSkin) activeSkin = item.id;
+        else activeBg = item.id;
+        localStorage.setItem(isSkin ? "flappy_active_skin" : "flappy_active_bg", item.id);
+        updateShopUI();
+        draw();
+      };
+    } else {
+      item.btn.textContent = `Buy (${item.cost})`;
+      item.btn.disabled = false;
+      item.btn.onclick = () => {
+        if(totalCoins >= item.cost){
+          totalCoins -= item.cost;
+          localStorage.setItem("flappy_coins", totalCoins);
+          if(isSkin) unlockedSkins.push(item.id);
+          else unlockedBgs.push(item.id);
+          localStorage.setItem(isSkin ? "flappy_unlocked_skins" : "flappy_unlocked_bgs", JSON.stringify(isSkin ? unlockedSkins : unlockedBgs));
+          updateShopUI();
+          updateStatsDisplay();
+        } else {
+          document.getElementById("status").textContent = "⚠️ Not enough coins for this item!";
+        }
+      };
+    }
+  });
+}
+
+c.addEventListener("pointerdown",flap);
+document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();flap();}});
+resetGame(false);
+draw();
+</script>
+</body>
+</html>
